@@ -25,13 +25,11 @@ class ConsolePPT(App):
 
     CSS = """
     Screen {
-        background: $surface;
         align: center middle;
         layers: base overlay;
     }
 
     #presentation-frame {
-        background: $surface;
         layer: base;
     }
 
@@ -73,19 +71,6 @@ class ConsolePPT(App):
     }
     """
 
-    BINDINGS = [
-        Binding("right,space", "next_slide", "Next", show=False),
-        Binding("left", "prev_slide", "Prev", show=False),
-        Binding("home", "first_slide", "First", show=False),
-        Binding("end", "last_slide", "Last", show=False),
-        Binding("g", "goto_mode", "Go to", show=False),
-        Binding("slash", "search", "Search", show=False),
-        Binding("o", "overview", "Overview", show=False),
-        Binding("n", "toggle_notes", "Notes", show=False),
-        Binding("question_mark", "toggle_help", "Help", show=False),
-        Binding("q", "quit", "Quit", show=False),
-    ]
-
     current_slide: int = 0
     show_notes: bool = False
     goto_mode: bool = False
@@ -95,6 +80,21 @@ class ConsolePPT(App):
         super().__init__()
         self.presentation = presentation
         self.config = config or Config()
+        
+        # Apply dynamic bindings from config
+        keys = self.config.keys
+        self.bind(keys.next_slide, "next_slide", description="Next", show=False)
+        self.bind(keys.next_slide_alt, "next_slide", description="Next", show=False)
+        self.bind(keys.prev_slide, "prev_slide", description="Prev", show=False)
+        self.bind(keys.first_slide, "first_slide", description="First", show=False)
+        self.bind(keys.last_slide, "last_slide", description="Last", show=False)
+        self.bind(keys.goto, "goto_mode", description="Go to", show=False)
+        self.bind(keys.search, "search", description="Search", show=False)
+        self.bind(keys.overview, "overview", description="Overview", show=False)
+        self.bind(keys.notes, "toggle_notes", description="Notes", show=False)
+        self.bind(keys.help, "toggle_help", description="Help", show=False)
+        self.bind(self.config.keys.quit, "quit", description="Quit", show=False)
+
         # Calculate non-title slides for progress tracking
         self.content_slides = [
             i for i, s in enumerate(presentation.slides) if not s.is_title_slide()
@@ -102,24 +102,6 @@ class ConsolePPT(App):
         self.content_slide_count = len(self.content_slides)
 
     def compose(self) -> ComposeResult:
-        # Determine display dimensions
-        display_width = self.config.display_width
-        display_height = self.config.display_height
-
-        # Build dynamic CSS for presentation frame
-        frame_styles = []
-        if display_width:
-            frame_styles.append(f"width: {display_width};")
-        if display_height:
-            frame_styles.append(f"height: {display_height};")
-
-        if frame_styles:
-            self.stylesheet.add_source(f"""
-            #presentation-frame {{
-                {" ".join(frame_styles)}
-            }}
-            """)
-
         with Container(id="presentation-frame"):
             with Container(id="main-container"):
                 with Container(id="slide-container"):
@@ -127,14 +109,29 @@ class ConsolePPT(App):
                     yield Static("", id="speaker-notes")
                 yield Static("", id="page-info")
                 yield ProgressBar(self.config, id="progress-bar")
-        yield HelpOverlay(id="help-overlay")
-        yield SearchOverlay(id="search-overlay")
-        yield OverviewOverlay(id="overview-overlay")
+        yield HelpOverlay(self.config, id="help-overlay")
+        yield SearchOverlay(self.config, id="search-overlay")
+        yield OverviewOverlay(self.config, id="overview-overlay")
 
     def _on_mount(self) -> None:
         """Initialize the display."""
-        self._update_display()
+        # Apply dynamic styles from config
+        self.styles.background = self.config.theme.bg
+        
+        frame = self.query_one("#presentation-frame")
+        frame.styles.background = self.config.theme.bg
+        
+        if self.config.display_width is not None:
+            frame.styles.width = f"{self.config.display_width}"
+        else:
+            frame.styles.width = "100%"
+            
+        if self.config.display_height is not None:
+            frame.styles.height = f"{self.config.display_height}"
+        else:
+            frame.styles.height = "100%"
 
+        self._update_display()
     def _update_display(self, animate: bool = False) -> None:
         """Update the current slide display."""
         if not self.presentation.slides:
@@ -214,6 +211,23 @@ class ConsolePPT(App):
         search = self.query_one("#search-overlay", SearchOverlay)
         search.toggle()
 
+    @on(SearchOverlay.SearchSubmitted)
+    def on_search_submitted(self, message: SearchOverlay.SearchSubmitted) -> None:
+        """Handle search submission."""
+        query = message.query
+        
+        # Search starting from next slide
+        num_slides = len(self.presentation)
+        for i in range(1, num_slides + 1):
+            index = (self.current_slide + i) % num_slides
+            if self.presentation.slides[index].contains(query):
+                self.current_slide = index
+                self._update_display(animate=True)
+                return
+        
+        # If not found
+        self.notify(f"No match found for: '{query}'")
+
     def action_overview(self) -> None:
         """Show overview of all slides."""
         overview = self.query_one("#overview-overlay", OverviewOverlay)
@@ -287,10 +301,10 @@ def main():
         config = Config.from_file(config_path)
     else:
         config = Config()
-
+    
     # Parse presentation
     try:
-        presentation = parse_file(str(filepath))
+        presentation = parse_file(str(filepath), default_show_progress=config.show_progress)
     except Exception as e:
         print(f"Error parsing file: {e}", file=sys.stderr)
         sys.exit(1)

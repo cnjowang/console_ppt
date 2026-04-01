@@ -45,6 +45,23 @@ class Element:
         default_factory=dict
     )  # HTML attributes (e.g., align, href, style)
 
+    def contains(self, query: str) -> bool:
+        """Check if the element contains the query string."""
+        query = query.lower()
+        if query in self.content.lower():
+            return True
+        for item in self.items:
+            if query in item.lower():
+                return True
+        for level, text in self.list_items:
+            if query in text.lower():
+                return True
+        for row in self.rows:
+            for cell in row:
+                if query in cell.lower():
+                    return True
+        return False
+
 
 @dataclass
 class Slide:
@@ -53,6 +70,15 @@ class Slide:
     elements: list[Element] = field(default_factory=list)
     notes: Optional[str] = None  # Speaker notes
     hide_progress: bool = False  # Whether to hide progress bar for this slide
+    transition_type: Optional[str] = None  # Transition effect for this slide
+
+    def contains(self, query: str) -> bool:
+        """Check if the slide contains the query string."""
+        if any(elem.contains(query) for elem in self.elements):
+            return True
+        if self.notes and query.lower() in self.notes.lower():
+            return True
+        return False
 
     @property
     def title(self) -> Optional[str]:
@@ -121,10 +147,10 @@ class MarkdownParser:
         self.content = content
         self.pos = 0
 
-    def parse(self) -> Presentation:
+    def parse(self, default_show_progress: bool = True) -> Presentation:
         """Parse the markdown content into a Presentation."""
         # Check for global directives before splitting
-        show_progress = True
+        show_progress = default_show_progress
         show_progress_match = re.search(
             r"^<!--\s*showprogress:\s*(false|true)\s*-->$", 
             self.content, 
@@ -132,6 +158,16 @@ class MarkdownParser:
         )
         if show_progress_match:
             show_progress = show_progress_match.group(1).lower() == "true"
+
+        # Check for initial global transition directive
+        current_transition = None
+        transition_match = re.search(
+            r"^<!--\s*transition:\s*(\w+)\s*-->$",
+            self.content,
+            re.MULTILINE | re.IGNORECASE
+        )
+        if transition_match:
+            current_transition = transition_match.group(1).lower()
 
         # Split by --- for slides
         raw_slides = re.split(r"^---\s*$", self.content, flags=re.MULTILINE)
@@ -145,7 +181,14 @@ class MarkdownParser:
                 continue
 
             slide = self._parse_slide(raw_slide)
-            if slide.elements:  # Only add non-empty slides
+            if slide.elements or slide.transition_type:  # Slide might only have a directive
+                # If slide has a local transition directive, update the current one
+                if slide.transition_type:
+                    current_transition = slide.transition_type
+                
+                # Apply current transition to slide
+                slide.transition_type = current_transition
+                
                 presentation.slides.append(slide)
 
         return presentation
@@ -171,6 +214,15 @@ class MarkdownParser:
             )
             if hideprogress_match:
                 slide.hide_progress = True
+                i += 1
+                continue
+
+            # Transition directive: <!-- transition: ... -->
+            transition_match = re.match(
+                r"^<!--\s*transition:\s*(\w+)\s*-->$", line.strip(), re.IGNORECASE
+            )
+            if transition_match:
+                slide.transition_type = transition_match.group(1).lower()
                 i += 1
                 continue
 
@@ -560,9 +612,9 @@ SUPPORTED_HTML_TAGS = {
 }
 
 
-def parse_file(filepath: str) -> Presentation:
+def parse_file(filepath: str, default_show_progress: bool = True) -> Presentation:
     """Parse a markdown file into a Presentation."""
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
     parser = MarkdownParser(content)
-    return parser.parse()
+    return parser.parse(default_show_progress=default_show_progress)

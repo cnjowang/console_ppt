@@ -15,7 +15,7 @@ class ThemeColors:
     heading_h3: str = "bold yellow"  # H3
     heading_h4: str = "bold bright_white"  # H4+
     code: str = "green"
-    code_bg: str = "#1e1e1e"
+    bg: str = "#1e1e1e"
     quote: str = "italic dim"
     list_bullet: str = "cyan"
     progress_done: str = "grey23"
@@ -34,31 +34,8 @@ class KeyBindings:
     search: str = "slash"
     overview: str = "o"
     notes: str = "n"
-    help: str = "question_mark"
+    help: str = "h"
     quit: str = "q"
-
-
-# Default configuration values
-DEFAULT_CONFIG = {
-    'theme': {
-        'title': 'bold cyan',
-        'heading_h2': 'bold dark_orange',
-        'heading_h3': 'bold yellow',
-        'heading_h4': 'bold bright_white',
-        'code': 'green',
-        'code_bg': '#1e1e1e',
-        'quote': 'italic dim',
-        'list_bullet': 'cyan',
-        'progress_done': 'grey23',
-        'progress_todo': 'grey15',
-    },
-    'show_line_numbers': False,
-    'code_highlight': True,
-    'enable_animations': True,
-    'animation_duration': 0.5,
-    'display_width': 120,
-    'display_height': 40,
-}
 
 
 @dataclass
@@ -67,9 +44,11 @@ class Config:
     theme: ThemeColors = field(default_factory=ThemeColors)
     keys: KeyBindings = field(default_factory=KeyBindings)
     show_line_numbers: bool = False
+    show_progress: bool = True
     code_highlight: bool = True
     enable_animations: bool = True
-    animation_duration: float = 1.0
+    animation_duration: float = 0.5
+    transition_type: str = "fall"  # "fall" or "glitch"
     # Display area settings
     display_width: Optional[int] = 120
     display_height: Optional[int] = 40
@@ -79,53 +58,36 @@ class Config:
         """Load configuration from a YAML file."""
         path = Path(filepath)
         if not path.exists():
+            print(f"DEBUG: Config file not found at {filepath}")
             return cls()
 
-        with open(path, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f) or {}
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+        except Exception as e:
+            print(f"DEBUG: Error reading config file: {e}")
+            return cls()
 
         config = cls()
 
         # Load theme
         if 'theme' in data:
             theme_data = data['theme']
-            config.theme = ThemeColors(
-                title=theme_data.get('title', config.theme.title),
-                heading_h2=theme_data.get('heading_h2', config.theme.heading_h2),
-                heading_h3=theme_data.get('heading_h3', config.theme.heading_h3),
-                heading_h4=theme_data.get('heading_h4', config.theme.heading_h4),
-                code=theme_data.get('code', config.theme.code),
-                code_bg=theme_data.get('code_bg', config.theme.code_bg),
-                quote=theme_data.get('quote', config.theme.quote),
-                list_bullet=theme_data.get('list_bullet', config.theme.list_bullet),
-                progress_done=theme_data.get('progress_done', config.theme.progress_done),
-                progress_todo=theme_data.get('progress_todo', config.theme.progress_todo),
-            )
+            for field_name in config.theme.__dataclass_fields__:
+                if field_name in theme_data:
+                    setattr(config.theme, field_name, theme_data[field_name])
 
         # Load key bindings
         if 'keys' in data:
             keys_data = data['keys']
-            config.keys = KeyBindings(
-                next_slide=keys_data.get('next_slide', config.keys.next_slide),
-                prev_slide=keys_data.get('prev_slide', config.keys.prev_slide),
-                next_slide_alt=keys_data.get('next_slide_alt', config.keys.next_slide_alt),
-                first_slide=keys_data.get('first_slide', config.keys.first_slide),
-                last_slide=keys_data.get('last_slide', config.keys.last_slide),
-                goto=keys_data.get('goto', config.keys.goto),
-                search=keys_data.get('search', config.keys.search),
-                overview=keys_data.get('overview', config.keys.overview),
-                notes=keys_data.get('notes', config.keys.notes),
-                help=keys_data.get('help', config.keys.help),
-                quit=keys_data.get('quit', config.keys.quit),
-            )
+            for field_name in config.keys.__dataclass_fields__:
+                if field_name in keys_data:
+                    setattr(config.keys, field_name, keys_data[field_name])
 
         # Load other settings
-        config.show_line_numbers = data.get('show_line_numbers', config.show_line_numbers)
-        config.code_highlight = data.get('code_highlight', config.code_highlight)
-        config.enable_animations = data.get('enable_animations', config.enable_animations)
-        config.animation_duration = data.get('animation_duration', config.animation_duration)
-        config.display_width = data.get('display_width', config.display_width)
-        config.display_height = data.get('display_height', config.display_height)
+        for field_name in config.__dataclass_fields__:
+            if field_name in data and field_name not in ('theme', 'keys'):
+                setattr(config, field_name, data[field_name])
 
         return config
 

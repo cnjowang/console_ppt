@@ -5,7 +5,7 @@ theme:
   heading_h3: "bold yellow"  # H3
   heading_h4: "bold bright_white"  # H4+
   code: "green"
-  code_bg: "#1e1e1e"
+  bg: "#252525"
   quote: "italic dim"
   list_bullet: "cyan"
   progress_done: "grey23"
@@ -22,18 +22,20 @@ keys:
   search: "slash"
   overview: "o"
   notes: "n"
-  help: "question_mark"
+  help: "h"
   quit: "q"
 
 # Display Settings
 show_line_numbers: false
+show_progress: true
 code_highlight: true
 
 # Animation Settings
 enable_animations: true
 animation_duration: 1.0
+transition_type: "fall"
 
 # Presentation area dimensions
 # Set to null or omit for auto (full screen)
-display_width: 120
-display_height: 40
+display_width: 90
+display_height: 35

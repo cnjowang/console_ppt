@@ -1,4 +1,5 @@
 <!-- showprogress: true -->
+<!-- transition: fall -->
 
 <title>Console PPT Pro</title>
 <subtitle>全功能终极演示指南</subtitle>
@@ -16,6 +17,22 @@
 <p align="center" style="color: cyan; font-weight: bold">按下 [Space] 或 [→] 开始探索</p>
 
 ---
+
+# 🌌 极致转场效果
+
+你可以通过指令动态控制页面间的转场动画：
+
+- **`fall` (坠落)**：基于重力的字符级独立坠落动效（默认效果）
+- **`glitch` (故障艺术)**：极客范的随机跳闪、风格反转与颜色突变
+
+<div align="center">
+  <p>👇 <b>下一页将开启故障艺术转场</b> 👇</p>
+  <code><!-- transition: glitch --></code>
+</div>
+
+---
+
+<!-- transition: glitch -->
 
 # 🎨 局部动效矩阵
 
@@ -46,9 +63,11 @@
 
 ---
 
+<!-- transition: fall -->
+
 # 💻 代码高亮演示
 
-支持 Monokai 主题的高质量语法高亮：
+支持 Monokai 主题的高质量语法高亮（已切回 `fall` 转场）：
 
 ```python
 import math
@@ -96,6 +115,7 @@ class Particle:
 你可以通过注释精准控制每一页的行为：
 
 - `<!-- hideprogress -->`: 隐藏当前页进度条
+- `<!-- transition: glitch -->`: 切换转场效果（持久性生效）
 - `<!-- showprogress: false -->`: 全局隐藏进度条
 - `<!-- notes: ... -->`: 添加演讲者备注
 

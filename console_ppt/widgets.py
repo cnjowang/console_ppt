@@ -32,6 +32,7 @@ class LinesRenderable:
         height: int,
         width: int,
         current_time: float,
+        transition_type: str = "fall",
     ):
         self.particles = particles  # (char, x, y, style, delay, anim_meta)
         self.progress = progress
@@ -39,6 +40,7 @@ class LinesRenderable:
         self.height = height
         self.width = width
         self.time = current_time
+        self.transition_type = transition_type
 
     def __rich_console__(self, console, options):
         # Create a buffer for the display area
@@ -48,23 +50,58 @@ class LinesRenderable:
         
         # Colors for rainbow/wave animation
         rainbow_colors = ["red", "orange3", "yellow", "green", "cyan", "blue", "magenta"]
+        glitch_chars = ["!", "@", "#", "$", "%", "^", "&", "*", "0", "1", "░", "▒", "▓", "█"]
         
         for char, x, y, style, delay, anim_meta in self.particles:
-            # 1. Calculate gravity transition
+            # 1. Calculate local transition progress (0.0 to 1.0)
             local_t = max(0.0, min(1.0, (self.progress - delay) / (1.0 - max_delay)))
             
-            y_offset = 0
-            if self.phase == 1:
-                y_offset = int(self.height * (local_t**2))
-            elif self.phase == 2:
-                y_offset = -int(self.height * ((1.0 - local_t) ** 2))
-            
-            target_y = y + y_offset
+            target_y = y
             target_x = x
             target_style = style
+            target_char = char
+
+            if self.transition_type == "glitch":
+                if self.phase == 1:  # Out
+                    if local_t > 0.8:
+                        continue  # Disappear
+                    if local_t > 0:
+                        # Glitch effect intensity increases with local_t
+                        if random.random() < local_t * 0.6:
+                            target_x += random.randint(-2, 2)
+                            target_y += random.randint(-1, 1)
+                            if random.random() < 0.5:
+                                target_style += Style(reverse=True, color="bright_white")
+                            else:
+                                target_style += Style(color="magenta" if random.random() > 0.5 else "cyan")
+                            if random.random() < 0.3:
+                                target_char = random.choice(glitch_chars)
+                elif self.phase == 2:  # In
+                    if local_t < 0.2:
+                        continue  # Not yet appeared
+                    if local_t < 1.0:
+                        # Glitch effect intensity decreases as local_t approaches 1.0
+                        reverse_t = 1.0 - local_t
+                        if random.random() < reverse_t * 0.6:
+                            target_x += random.randint(-2, 2)
+                            target_y += random.randint(-1, 1)
+                            if random.random() < 0.5:
+                                target_style += Style(reverse=True, color="bright_white")
+                            else:
+                                target_style += Style(color="yellow" if random.random() > 0.5 else "green")
+                            if random.random() < 0.3:
+                                target_char = random.choice(glitch_chars)
+            else:  # "fall" (default)
+                y_offset = 0
+                if self.phase == 1:
+                    y_offset = int(self.height * (local_t**2))
+                elif self.phase == 2:
+                    y_offset = -int(self.height * ((1.0 - local_t) ** 2))
+                target_y = y + y_offset
             
-            # 2. Apply local animations
-            if anim_meta:
+            # 2. Apply local animations (only if not currently glitching heavily)
+            is_glitching = self.transition_type == "glitch" and 0 < local_t < 1.0
+            if anim_meta and not (is_glitching and random.random() < 0.5):
                 anim_type = anim_meta.get("anim")
                 speed = float(anim_meta.get("speed", 1.0))
                 
@@ -101,11 +138,11 @@ class LinesRenderable:
 
             if 0 <= target_y < len(display_lines):
                 # Calculate char width correctly
-                is_cjk = ("\u4e00" <= char <= "\u9fff" or 
-                          "\u3000" <= char <= "\u303f" or 
-                          "\uff00" <= char <= "\uffef")
+                is_cjk = ("\u4e00" <= target_char <= "\u9fff" or 
+                          "\u3000" <= target_char <= "\u303f" or 
+                          "\uff00" <= target_char <= "\uffef")
                 width = 2 if is_cjk else 1
-                display_lines[target_y][target_x] = (Segment(char, target_style), width)
+                display_lines[target_y][target_x] = (Segment(target_char, target_style), width)
 
         # Yield each line, filling gaps with spaces
         for line_dict in display_lines:
@@ -166,6 +203,7 @@ class SlideWidget(Widget):
     """
 
     slide: reactive[Slide | None] = reactive(None)
+    next_slide: reactive[Slide | None] = reactive(None)
     show_notes: reactive[bool] = reactive(False)
     # Animation states
     animation_progress: reactive[float] = reactive(0.0)
@@ -237,10 +275,19 @@ class SlideWidget(Widget):
     def render(self) -> LinesRenderable:
         """Render the slide with animations."""
         # Use config height/width or fallback to widget size
-        height = self.config.display_height or (self.size.height if self.size.height > 0 else 40)
         width = self.config.display_width or (self.size.width if self.size.width > 0 else 80)
+        height = self.config.display_height or (self.size.height if self.size.height > 0 else 40)
         
         particles = self.current_particles if self.animation_phase != 2 else self.next_particles
+        
+        # Determine transition type
+        # During animation (phase 1 & 2), we use the incoming slide's transition type
+        # For a static slide (phase 0), we use the current slide's transition type
+        transition_slide = self.next_slide if self.animation_phase != 0 else self.slide
+        
+        transition_type = self.config.transition_type
+        if transition_slide and transition_slide.transition_type:
+            transition_type = transition_slide.transition_type
         
         return LinesRenderable(
             particles=particles,
@@ -248,8 +295,14 @@ class SlideWidget(Widget):
             phase=self.animation_phase,
             height=height,
             width=width,
-            current_time=time.time()
+            current_time=time.time(),
+            transition_type=transition_type
         )
+
+    def _on_resize(self) -> None:
+        """Handle resize events to re-render content if in auto-size mode."""
+        if self.slide and (not self.config.display_width or not self.config.display_height):
+            self._update_content(self.slide)
 
     def animate_to_slide(self, new_slide: Slide, show_notes: bool = False) -> None:
         """Trigger per-character gravity animation to a new slide."""
@@ -259,6 +312,7 @@ class SlideWidget(Widget):
 
         # Prepare next slide
         self.show_notes = show_notes
+        self.next_slide = new_slide
         next_text = self._build_slide_text(new_slide)
         self.next_particles = self._render_to_particles(next_text)
         
@@ -280,6 +334,7 @@ class SlideWidget(Widget):
         def finish_animation():
             self.animation_phase = 0
             self.animation_progress = 0.0
+            self.next_slide = None
             self.refresh()
 
         # Phase 1: Fall out
@@ -428,7 +483,7 @@ class SlideWidget(Widget):
         The widget has padding: 1 2 (top/bottom: 1, left/right: 2),
         so total horizontal padding is 4 columns.
         """
-        width = self.config.display_width or 80
+        width = self.config.display_width or (self.size.width if self.size.width > 0 else 80)
         return max(1, width - self.HORIZONTAL_PADDING)
 
     def _get_display_width(self, text: str) -> int:
@@ -1387,26 +1442,40 @@ class HelpOverlay(Widget):
 
     visible: reactive[bool] = reactive(False)
 
+    def __init__(self, config: Config, **kwargs):
+        super().__init__(**kwargs)
+        self.config = config
+
     def watch_visible(self, visible: bool) -> None:
         """Handle visibility changes."""
         self.set_class(visible, "visible")
+        if visible:
+            # Update help text when becoming visible to ensure latest config
+            self.query_one("#help-content", Static).update(self._get_help_text())
+            # Apply background color from theme
+            self.styles.background = self.config.theme.bg
 
     def compose(self) -> ComposeResult:
         yield Static("Keyboard Shortcuts", id="help-title")
         yield Static(self._get_help_text(), id="help-content")
 
     def _get_help_text(self) -> str:
-        return """
-  → / Space    Next slide
-  ←            Previous slide
-  Home         First slide
-  End          Last slide
-  g + number   Go to slide N
-  /            Search
-  o            Overview mode
-  n            Toggle speaker notes
-  ?            Show this help
-  q            Quit
+        keys = self.config.keys
+        
+        def format_key(k):
+            return k.replace("_", " ").title() if len(k) > 1 else k
+
+        return f"""
+  {format_key(keys.next_slide)} / {format_key(keys.next_slide_alt)}    Next slide
+  {format_key(keys.prev_slide)}            Previous slide
+  {format_key(keys.first_slide)}         First slide
+  {format_key(keys.last_slide)}           Last slide
+  {format_key(keys.goto)} + number   Go to slide N
+  {format_key(keys.search)}            Search
+  {format_key(keys.overview)}            Overview mode
+  {format_key(keys.notes)}            Toggle speaker notes
+  {format_key(keys.help)}            Show this help
+  {format_key(keys.quit)}            Quit
 """
 
     def toggle(self) -> None:
@@ -1433,9 +1502,15 @@ class SearchOverlay(Widget):
 
     visible: reactive[bool] = reactive(False)
 
+    def __init__(self, config: Config, **kwargs):
+        super().__init__(**kwargs)
+        self.config = config
+
     def watch_visible(self, visible: bool) -> None:
         """Handle visibility changes."""
         self.set_class(visible, "visible")
+        if visible:
+            self.styles.background = self.config.theme.bg
 
     class SearchSubmitted(Message):
         """Sent when a search is submitted."""
@@ -1454,6 +1529,20 @@ class SearchOverlay(Widget):
         self.visible = not self.visible
         if self.visible:
             self.query_one("#search-input", Input).focus()
+        else:
+            self.app.focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle search submission."""
+        if event.value.strip():
+            self.post_message(self.SearchSubmitted(event.value))
+        self.visible = False
+
+    def on_key(self, event) -> None:
+        """Handle escape to close."""
+        if event.key == "escape":
+            self.visible = False
+            event.stop()
 
 
 class OverviewOverlay(Widget):
@@ -1498,9 +1587,16 @@ class OverviewOverlay(Widget):
 
     visible: reactive[bool] = reactive(False)
 
+    def __init__(self, config: Config, **kwargs):
+        super().__init__(**kwargs)
+        self.config = config
+
     def watch_visible(self, visible: bool) -> None:
         """Handle visibility changes."""
         self.set_class(visible, "visible")
+        if visible:
+            self.styles.background = self.config.theme.bg
+            self.query_one("ListView").styles.background = self.config.theme.bg
 
     class SlideSelected(Message):
         """Sent when a slide is selected from overview."""
