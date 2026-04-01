@@ -432,19 +432,9 @@ class SlideWidget(Widget):
         return max(1, width - self.HORIZONTAL_PADDING)
 
     def _get_display_width(self, text: str) -> int:
-        """Calculate the display width of a string, accounting for CJK characters."""
-        width = 0
-        for char in text:
-            # CJK characters and fullwidth characters have width 2
-            if "\u4e00" <= char <= "\u9fff":  # CJK Unified Ideographs
-                width += 2
-            elif "\u3000" <= char <= "\u303f":  # CJK Symbols and Punctuation
-                width += 2
-            elif "\uff00" <= char <= "\uffef":  # Halfwidth and Fullwidth Forms
-                width += 2
-            else:
-                width += 1
-        return width
+        """Calculate the display width of a string using rich's cell_len."""
+        from rich.cells import cell_len
+        return cell_len(text)
 
     def _pad_to_width(self, text: str, target_width: int) -> str:
         """Pad text to target display width, accounting for CJK characters."""
@@ -1238,50 +1228,53 @@ class SlideWidget(Widget):
         return " ".join(styles) if styles else ""
 
     def _render_table(self, text: Text, elem: Element) -> None:
-        """Render a table."""
+        """Render a table using rich.table.Table for robust layout."""
         if not elem.rows:
             return
 
-        # Calculate column widths using display width (for CJK support)
-        num_cols = max(len(row) for row in elem.rows)
-        col_widths = [0] * num_cols
+        from rich.table import Table
+        from rich.box import ROUNDED
+        from rich.console import Console
+        from io import StringIO
 
-        for row in elem.rows:
-            for i, cell in enumerate(row):
-                col_widths[i] = max(col_widths[i], self._get_display_width(cell))
+        # Create a rich Table
+        table = Table(
+            box=ROUNDED,
+            padding=(0, 1),
+            collapse_padding=True,
+            border_style="dim",
+            show_header=True,
+            header_style="bold bright_white",
+            pad_edge=True
+        )
 
-        # Build border characters
-        top_border = "┌" + "┬".join("─" * (w + 2) for w in col_widths) + "┐"
-        mid_border = "├" + "┼".join("─" * (w + 2) for w in col_widths) + "┤"
-        bot_border = "└" + "┴".join("─" * (w + 2) for w in col_widths) + "┘"
+        # Add columns based on the header row (first row)
+        header_row = elem.rows[0]
+        for cell in header_row:
+            # Process inline HTML in header cells
+            header_text = Text()
+            self._render_inline(header_text, cell)
+            table.add_column(header_text)
 
-        # Render top border
-        text.append(top_border, style="dim")
+        # Add data rows
+        for row_idx, row in enumerate(elem.rows[1:]):
+            row_content = []
+            for cell_content in row:
+                # Process inline HTML in data cells
+                cell_text = Text()
+                self._render_inline(cell_text, cell_content)
+                row_content.append(cell_text)
+            table.add_row(*row_content)
+
+        # Render table to a temporary console to get rich Text/Segments
+        console = Console(file=StringIO(), force_terminal=True, width=self._get_effective_display_width())
+        with console.capture() as capture:
+            console.print(table)
+        
+        # Parse the output back into our main Text object
+        table_output = capture.get()
+        text.append_text(Text.from_ansi(table_output))
         text.append("\n")
-
-        for row_idx, row in enumerate(elem.rows):
-            # Render cells with separators
-            text.append("│", style="dim")
-            for i in range(num_cols):
-                cell = row[i] if i < len(row) else ""
-                # Pad cell to display width
-                padded_cell = " " + self._pad_to_width(cell, col_widths[i]) + " "
-                if row_idx == 0:
-                    # Header row: bright white text
-                    text.append(padded_cell, style="bold bright_white")
-                else:
-                    text.append(padded_cell)
-                if i < num_cols - 1:
-                    text.append("│", style="dim")
-            text.append("│", style="dim")
-            text.append("\n")
-
-            if row_idx == 0:
-                text.append(mid_border, style="dim")
-                text.append("\n")
-
-        text.append(bot_border, style="dim")
-        text.append("\n")  # Add newline after table
 
     def update_slide(self, slide: Slide, show_notes: bool = False) -> None:
         """Update the displayed slide."""

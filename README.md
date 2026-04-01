@@ -311,7 +311,7 @@ display_height: 40
 │   ├── widgets.py           # TUI 组件与渲染
 │   └── config.py            # 配置管理
 └── example/
-    ├── demo.md              # 基础功能示例
+    ├── demo.md              # 完整功能演示
     ├── html_demo.md         # HTML 标签示例
     ├── valign_demo.md       # 垂直对齐示例
     ├── nested_demo.md       # 嵌套标签示例
