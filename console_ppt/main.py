@@ -41,6 +41,16 @@ class ConsolePPT(App):
 
     #slide-container {
         height: 1fr;
+        layout: vertical;
+    }
+
+    #speaker-notes {
+        height: auto;
+        max-height: 20%;
+        background: $surface;
+        color: $text-disabled;
+        padding: 1 2;
+        display: none;
     }
 
     #progress-bar {
@@ -114,6 +124,7 @@ class ConsolePPT(App):
             with Container(id="main-container"):
                 with Container(id="slide-container"):
                     yield SlideWidget(self.config, id="slide-widget")
+                    yield Static("", id="speaker-notes")
                 yield Static("", id="page-info")
                 yield ProgressBar(self.config, id="progress-bar")
         yield HelpOverlay(id="help-overlay")
@@ -139,12 +150,20 @@ class ConsolePPT(App):
         else:
             slide_widget.update_slide(slide, self.show_notes)
 
+        # Update speaker notes
+        notes_widget = self.query_one("#speaker-notes", Static)
+        if self.show_notes and slide.notes:
+            notes_widget.update(f"📝 {slide.notes}")
+            notes_widget.styles.display = "block"
+        else:
+            notes_widget.styles.display = "none"
+
         # Update progress bar and page info (hidden for title slides or when hide_progress is set)
         progress_bar = self.query_one("#progress-bar", ProgressBar)
         page_info = self.query_one("#page-info", Static)
 
-        # Check if progress bar should be hidden (title slide or hide_progress directive)
-        hide_progress = is_title or slide.hide_progress
+        # Check if progress bar should be hidden (global setting, title slide or hide_progress directive)
+        hide_progress = not self.presentation.show_progress or is_title or slide.hide_progress
 
         if hide_progress:
             # Hide progress bar and page info

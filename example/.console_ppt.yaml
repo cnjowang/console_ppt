@@ -1,4 +1,4 @@
-# Theme
+# Theme Configuration
 theme:
   title: "bold cyan"  # H1
   heading_h2: "bold dark_orange"  # H2
@@ -8,14 +8,32 @@ theme:
   code_bg: "#1e1e1e"
   quote: "italic dim"
   list_bullet: "cyan"
-  progress_done: "blue dim"
-  progress_todo: "grey35 dim"
+  progress_done: "grey23"
+  progress_todo: "grey15"
 
-# Display settings
-show_line_numbers: true
+# Key Bindings
+keys:
+  next_slide: "right"
+  prev_slide: "left"
+  next_slide_alt: "space"
+  first_slide: "home"
+  last_slide: "end"
+  goto: "g"
+  search: "slash"
+  overview: "o"
+  notes: "n"
+  help: "question_mark"
+  quit: "q"
+
+# Display Settings
+show_line_numbers: false
 code_highlight: true
 
-# Presentation area dimensions (optional)
+# Animation Settings
+enable_animations: true
+animation_duration: 1.0
+
+# Presentation area dimensions
 # Set to null or omit for auto (full screen)
 display_width: 120
 display_height: 40

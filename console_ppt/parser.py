@@ -105,6 +105,7 @@ class Presentation:
 
     slides: list[Slide] = field(default_factory=list)
     title: str = ""
+    show_progress: bool = True
 
     def __len__(self) -> int:
         return len(self.slides)
@@ -122,10 +123,21 @@ class MarkdownParser:
 
     def parse(self) -> Presentation:
         """Parse the markdown content into a Presentation."""
+        # Check for global directives before splitting
+        show_progress = True
+        show_progress_match = re.search(
+            r"^<!--\s*showprogress:\s*(false|true)\s*-->$", 
+            self.content, 
+            re.MULTILINE | re.IGNORECASE
+        )
+        if show_progress_match:
+            show_progress = show_progress_match.group(1).lower() == "true"
+
         # Split by --- for slides
         raw_slides = re.split(r"^---\s*$", self.content, flags=re.MULTILINE)
 
         presentation = Presentation()
+        presentation.show_progress = show_progress
 
         for raw_slide in raw_slides:
             raw_slide = raw_slide.strip()
@@ -159,6 +171,12 @@ class MarkdownParser:
             )
             if hideprogress_match:
                 slide.hide_progress = True
+                i += 1
+                continue
+
+            # Global progress directive: <!-- showprogress: ... -->
+            # Skip this line as it's handled globally in parse()
+            if re.match(r"^<!--\s*showprogress:\s*(false|true)\s*-->$", line.strip(), re.IGNORECASE):
                 i += 1
                 continue
 

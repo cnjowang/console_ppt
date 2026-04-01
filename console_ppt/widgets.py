@@ -90,6 +90,11 @@ class LinesRenderable:
                     y_bounce = int(math.sin(self.time * speed * 8) * 1.5)
                     target_y += y_bounce
                 
+                elif anim_type == "move":
+                    anim_range = float(anim_meta.get("range", 2.0))
+                    x_move = int(math.sin(self.time * speed * 8) * anim_range)
+                    target_x += x_move
+                
                 elif anim_type == "wave":
                     wave_idx = int(self.time * speed * 8 + x * 0.5) % len(rainbow_colors)
                     target_style += Style(color=rainbow_colors[wave_idx])
@@ -322,12 +327,6 @@ class SlideWidget(Widget):
             self._render_element(text, elem)
             i += 1
 
-        # Show notes if enabled
-        if self.show_notes and slide.notes:
-            text.append("\n\n")
-            text.append("📝 Notes: ", style="bold yellow")
-            text.append(slide.notes, style="italic dim")
-
         return text
 
     def _build_title_slide_text(self, slide: Slide) -> Text:
@@ -386,12 +385,6 @@ class SlideWidget(Widget):
                 self._render_centered_paragraph(text, elem)
             else:
                 self._render_element(text, elem)
-
-        # Show notes if enabled
-        if self.show_notes and slide.notes:
-            text.append("\n\n")
-            text.append("📝 Notes: ", style="bold yellow")
-            text.append(slide.notes, style="italic dim")
 
         return text
 
@@ -676,8 +669,10 @@ class SlideWidget(Widget):
             anim_type = attrs.get("type", "pulse")
             anim_speed = attrs.get("speed", "1.0")
             anim_color = attrs.get("color", "")
+            anim_range = attrs.get("range", "2")
             # Store animation info in Style meta
-            base_style = Style(meta={"anim": anim_type, "speed": anim_speed, "color": anim_color})
+            base_style = Style(meta={"anim": anim_type, "speed": anim_speed, "color": anim_color, "range": anim_range})
+
         elif tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             # Map HTML headings to theme styles
             level = int(tag[1])
@@ -843,7 +838,8 @@ class SlideWidget(Widget):
                 anim_type = attrs.get("type", "pulse")
                 anim_speed = attrs.get("speed", "1.0")
                 anim_color = attrs.get("color", "")
-                rich_style = Style(meta={"anim": anim_type, "speed": anim_speed, "color": anim_color})
+                anim_range = attrs.get("range", "2")
+                rich_style = Style(meta={"anim": anim_type, "speed": anim_speed, "color": anim_color, "range": anim_range})
             elif tag.startswith("h"):
                 level = int(tag[1])
                 if level == 1: rich_style = self.config.theme.title

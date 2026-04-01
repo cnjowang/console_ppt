@@ -14,6 +14,7 @@
 
 
 - **弹跳 (Bounce)**: <animate type="bounce">我跳，我跳，我跳跳跳！</animate>
+- **平移 (Move)**: <animate type="move" range="2" speed="1.2">我在左右移动，嘿嘿！</animate>
 
 ---
 
@@ -45,7 +46,9 @@
 - `rainbow`: 颜色循环
 - `glitch`: 随机抖动
 - `bounce`: 上下弹跳
+- `move`: 左右平移
 - `wave`: 颜色波浪
 
 **支持的属性**:
 - `speed`: 动画速度缩放（默认 1.0）
+- `range`: 动效范围（目前支持 move 类型，默认 2）

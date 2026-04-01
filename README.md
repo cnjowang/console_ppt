@@ -136,6 +136,18 @@
 
 适用于过渡页、休息页、Q&A 页等场景。
 
+#### showprogress（全局控制）
+
+在 Markdown 文件顶部（第一页之前或第一页内）设置是否全局显示进度条：
+
+```markdown
+<!-- showprogress: false -->
+
+# My Presentation
+```
+
+若设置为 `false`，则所有页面（包括非标题页）都不会显示进度条。默认为 `true`。
+
 ### 6. TUI 渲染
 
 - 使用 Textual 框架
@@ -211,16 +223,18 @@
 
 ### 12. 局部动效
 
-- **语法**：使用 `<animate>` 标签包裹内容。
+- **语法**：使用 `<animate>` 标签包裹内容.
 - **属性**：
   - `type`：动效类型（必填）。
   - `speed`：动画速度倍率（可选，默认 1.0）。
   - `color`：指定动画颜色（可选，目前支持 `pulse` 类型）。
+  - `range`：指定动效范围（可选，目前支持 `move` 类型，默认 2）。
 - **支持类型**：
   - `pulse`：平滑的亮度呼吸效果。可配合 `color` 属性实现特定颜色的闪烁。
   - `rainbow`：文字颜色在彩虹色谱间循环。
   - `glitch`：极客风格的随机位置抖动。
   - `bounce`：文字上下弹跳。
+  - `move`：文字左右平移。可通过 `range` 属性控制距离（默认 2）。
   - `wave`：颜色在字符序列间像波浪一样流动（适合箭头 `>>>>` 或连续符号）。
 - **嵌套特性**：支持样式继承。被 `<animate>` 包裹的所有嵌套 HTML 标签（如 `<h1>`, `<span>`, `<p>`）都将继承该动画效果。
 - **实现原理**：基于 TUI 20FPS 刷新率，动态计算每个字符粒子的空间偏移或颜色样式。
@@ -285,9 +299,11 @@ display_height: 40
 ## 项目结构
 
 ```
-console_ppt/
+.
 ├── pyproject.toml           # 项目配置
-├── REQUIREMENTS.md          # 需求文档
+├── README.md                # 需求文档
+├── GEMINI.md                # 开发规范与工作原则
+├── AGENTS.md                # Agent 定义与指令
 ├── console_ppt/
 │   ├── __init__.py
 │   ├── main.py              # 主程序入口
@@ -301,6 +317,7 @@ console_ppt/
     ├── nested_demo.md       # 嵌套标签示例
     ├── style_align_demo.md  # 样式与对齐示例
     ├── hideprogress_demo.md # 隐藏进度条示例
+    ├── animation_demo.md    # 切换动效示例
     └── .console_ppt.yaml    # 示例配置
 ```
 
@@ -327,11 +344,6 @@ python -m console_ppt.main example/demo.md -c /path/to/config.yaml
 
 ## 待开发功能
 
-### 局部动效
+### 遥控功能
 
-* 左右移动：指定的字符在展示时不停左右移动
-
-### 进度条显示控制策略
-
-* 能在markdown文档内全局控制是否显示进度条
-* 在markdown文档内全局未关闭进度条的情况下，可以隐藏某个页的进度条
+允许在手机端进行遥控
