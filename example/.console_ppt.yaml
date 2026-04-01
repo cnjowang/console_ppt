@@ -1,0 +1,21 @@
+# Theme
+theme:
+  title: "bold cyan"  # H1
+  heading_h2: "bold dark_orange"  # H2
+  heading_h3: "bold yellow"  # H3
+  heading_h4: "bold bright_white"  # H4+
+  code: "green"
+  code_bg: "#1e1e1e"
+  quote: "italic dim"
+  list_bullet: "cyan"
+  progress_done: "blue dim"
+  progress_todo: "grey35 dim"
+
+# Display settings
+show_line_numbers: true
+code_highlight: true
+
+# Presentation area dimensions (optional)
+# Set to null or omit for auto (full screen)
+display_width: 120
+display_height: 40
